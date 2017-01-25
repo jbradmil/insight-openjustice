@@ -7,7 +7,7 @@ import os
 import glob
 
 
-def relabel_census(indir='data/census/acs/2011-15/CA/', outtag='acs'):
+def clean_census(indir='data/census/acs/2011-15/CA/', outtag='acs'):
     # first load labels table
     labels = pd.read_json('http://api.census.gov/data/2015/acs5/variables.json')
     # now parse the json to get columns
