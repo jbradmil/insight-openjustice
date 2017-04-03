@@ -180,7 +180,7 @@ def label_columns(intable):
     df['Place'] = df['Place'].str.replace(', California','')
     df.reset_index(inplace=True)
     del df['Geocode']
-    print 'Sacing labeled table to ' + outtable
+    print 'Saving labeled table to ' + outtable
     df.to_csv(outtable)
 
 
