@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-import requests, pandas, os, glob
+import requests, pandas as pd, os, glob
 
 def build_output_directories(years):
     print '  Building directory structure ...',
@@ -83,7 +83,7 @@ def download_table(acs_dict, table, api_key, api_url_base, base_dir):
         api_url = api_url_base + get_string + '&for=state:6&key=' + api_key
         ## to debug, uncomment the following line to see the exact API call
         # print 'State URL: ' + api_url
-        state_data = pandas.io.json.read_json(api_url)
+        state_data = pd.io.json.read_json(api_url)
         state_data.columns = state_data[:1].values.tolist() # Rename columns based on first row
         state_data['Geocode'] = state_data['state']
         state_data = state_data[1:] # Drop first row
@@ -91,7 +91,7 @@ def download_table(acs_dict, table, api_key, api_url_base, base_dir):
         api_url = api_url_base + get_string + '&for=county:*&in=state:6&key=' + api_key
         ## to debug, uncomment the following line to see the exact API call
         #print 'Counties URL: ' + api_url
-        county_data = pandas.io.json.read_json(api_url)
+        county_data = pd.io.json.read_json(api_url)
         county_data.columns = county_data[:1].values.tolist() # Rename columns based on first row
         county_data['Geocode'] = county_data['state'] + county_data['county']
         county_data = county_data[1:] # Drop first row
@@ -102,21 +102,21 @@ def download_table(acs_dict, table, api_key, api_url_base, base_dir):
         if api_calls_done == 0:
             data = temp
         else:
-            data = pandas.concat([data, temp], axis=1)
+            data = pd.concat([data, temp], axis=1)
         api_calls_done = api_calls_done + 1
         
     csv_path = base_dir + '/' + table + '.csv'
     # Pull out the Geocode and Name        
     geocode = data['Geocode']
-    series = type(pandas.Series())
-    #if type(geocode) == 'pandas.core.series.Series':
+    series = type(pd.Series())
+    #if type(geocode) == 'pd.core.series.Series':
     if isinstance(geocode, series):
-        geocode = pandas.DataFrame(geocode, columns=['Geocode'])
+        geocode = pd.DataFrame(geocode, columns=['Geocode'])
     else:
         geocode = geocode[[1]]
     name = data['NAME']
     if isinstance(name, series):
-        name = pandas.DataFrame(name, columns=['NAME'])
+        name = pd.DataFrame(name, columns=['NAME'])
     else:
         name = name[[1]]
     # Drop unneeded columns in they exist
@@ -126,7 +126,7 @@ def download_table(acs_dict, table, api_key, api_url_base, base_dir):
     data = data.drop(['Geocode'], axis=1)
     data = data.drop(['NAME'], axis=1)
     # Build data frame with columns in the desired order
-    data = pandas.concat([geocode, name, data], axis=1)
+    data = pd.concat([geocode, name, data], axis=1)
     #print data
     data.to_csv(csv_path, index=False)
     print('      Table '+table+' Downloaded and Saved')
@@ -144,13 +144,13 @@ def download_and_save_data(var_dict, api_key):
             download_table(var_dict[year]['acs_dict'], table, api_key, api_url_base, "data/census/CA/acs-1yr/"+str(year))
 
 def make_description_file(infile, var_json):
-    dfin = pandas.DataFrame.from_csv(infile)
+    dfin = pd.DataFrame.from_csv(infile)
     descriptions=[var_json['variables'][dfin.columns[1]]['concept']]
     indices = ['Table Description']
     for var in dfin.columns[1:]:
         indices.append(var)
         descriptions.append(var_json['variables'][var]['label'])
-    df_out = pandas.DataFrame({'Variable': indices, 'Description': descriptions})
+    df_out = pd.DataFrame({'Variable': indices, 'Description': descriptions})
     df_out.set_index('Variable', inplace=True)
     df_out.to_csv(infile[:-4]+'-vardesc.csv') 
 
@@ -160,5 +160,27 @@ def make_all_description_files(year, variable_lists):
         if infile.find('-vardesc.csv')>=0:
             continue
         make_description_file(infile, variable_lists[year])
+        
+def label_columns(intable):
+    # load input table, description tabkle
+    df = pd.DataFrame.from_csv(intable)
+    df_desc = pd.DataFrame.from_csv(intable.replace('.csv','-vardesc.csv'))
+    # extract name for labeled table
+    outtable = df_desc.loc['Table Description'][0].replace('.  ','-')
+    outtable = outtable.replace(' ','-')
+    outtable = '/'.join(intable.split('/')[:-1])+'/'+outtable+'.csv'
+    # rename columns
+    header=df_desc['Description'].values[1:]
+    column_names = ['Place']
+    column_names.extend(header)
+    df.columns = column_names
+    # a little extra cleaning up
+    year=int(intable.split('/')[-2])
+    df['Year']=year
+    df['Place'] = df['Place'].str.replace(', California','')
+    df.reset_index(inplace=True)
+    del df['Geocode']
+    print 'Sacing labeled table to ' + outtable
+    df.to_csv(outtable)
 
 
